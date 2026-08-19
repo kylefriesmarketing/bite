@@ -1,6 +1,7 @@
 # BITE
 ### quiet fishing at Mud Lake, done honestly · a DIRTY BOY DEVS game
-**v1.0 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
+**v1.1 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
+**Live: https://kylefriesmarketing.github.io/bite/**
 
 The tackle box in the garage is dad's. Inside it: a red-and-white bobber, a coffee can's
 worth of worms, and a lake. The bobber is a language — every species bites differently and
@@ -55,7 +56,7 @@ worst. In December the lake freezes and the doorway is gone until thaw. That's t
   `&ts=N` speeds the sim.
 - `?probe=1` — seeded 30-day weather table, per-spot heat, and a 1,000-draw species
   distribution (bite tables are tuned from the probe, not vibes).
-- `test.mjs` — full Playwright suite (37 checks): every species landed via the real
+- `test.mjs` — full Playwright suite (41 checks): every species landed via the real
   pipeline, bobber-grammar timing, the mayor's scripted first break-off and once-per-save
   landing, lure archaeology, sore-mouth memory, winter freeze, save round-trip, zero
   console errors. `npm i playwright` then `node test.mjs`.
@@ -63,10 +64,15 @@ worst. In December the lake freezes and the doorway is gone until thaw. That's t
 
 ## Ship checklist (per ROADMAP §7 — repo on day one)
 
-1. `kylefriesmarketing/bite` — push this folder.
-2. GitHub Pages from default branch → verify live URL.
-3. Update the brief's status line in `game-briefs/garage.md` to `shipped (<url>)`.
-4. Hub-side: doorway mesh + hint + collectible wiring when the garage opens
-   (standalone ship is fine until then — house law).
+1. ✅ `kylefriesmarketing/bite` — pushed 2026-08-19.
+2. ✅ GitHub Pages from `main` / root → live and verified.
+3. ✅ Brief status line in `game-briefs/garage.md` + the `CATALOG.md` row → shipped.
+4. ⬜ **Hub-side move-in — now DUE: the garage opened in the hub on 2026-08-19**
+   (`games-hub` commit 7403827, "THE GARAGE: the tape comes off the last door").
+   Needs, in `games-hub`: the tackle-box doorway mesh + `tag()` hint in `js/hallway.js`
+   (beside the workbench, in `enterGarage`'s space), the list-view card in `index.html`,
+   and the collectible — *the scale (the size of a poker chip)*, earn condition
+   `mayor.landed` from `bite-save`. Poster texture is already cut and waiting at
+   `games-hub/assets/tex/poster-bite.jpg` (512×768 q85, house recipe).
 
 *cast. wait. read. the lake remembers, and so does the book. — DBD*
