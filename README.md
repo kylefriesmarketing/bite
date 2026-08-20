@@ -1,6 +1,6 @@
 # BITE
 ### quiet fishing at Mud Lake, done honestly · a DIRTY BOY DEVS game
-**v1.4 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
+**v1.5 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
 **Live: https://kylefriesmarketing.github.io/bite/**
 
 The tackle box in the garage is dad's. Inside it: a red-and-white bobber, a coffee can's
@@ -75,12 +75,37 @@ there. Most of the warm-water fish are torpid, which leaves the perch kings. Mar
   `npm i playwright` then `PW_CHANNEL=chrome node test.mjs` (uses installed Chrome — no
   130MB browser download). `PW_CHROMIUM=<path>` overrides; the old container path still
   wins when it actually exists.
-- `test.mjs` — full Playwright suite (46 checks, **46/46 green on Windows 2026-08-19**):
+- `test.mjs` — full Playwright suite (47 checks, **47/47 green on Windows 2026-08-19**):
   every species landed via the real
   pipeline, bobber-grammar timing, the mayor's scripted first break-off and once-per-save
   landing, lure archaeology, sore-mouth memory, winter freeze, save round-trip, zero
   console errors. Run it with the command in the bullet above.
 - QA handles live on `window.__bite`.
+
+## Fixed from playtest (v1.5) — three real bugs in the core loop
+
+Kyle: *"when you cast it doesn't go where you actually put it — when you hit click to
+reel when you have a fish it's just ready to cast again, there is no reeling animation or
+catching or reeling in so you know when you have a fish."* All three were real.
+
+1. **The cast ignored your aim.** `tryCast` set the bobber's depth to
+   `HOR+40+((wx_%37)/37)*…` — **a hash of the x coordinate**. The aiming reticle drew
+   under your finger and the bobber then landed at an unrelated depth: aiming at the near
+   bank put it ~160px away, and every cast at the same x landed at the same y no matter
+   where you pointed. The aim's y is carried through now and clamped to the water band.
+   Locked in by a real-mouse test that aims low and asserts where it lands.
+2. **The "reel in" button ate fish.** It read *reel in* and did `G.line=null` with no
+   message — so pressing the thing labelled REEL IN while a fish was on, which is the
+   correct instinct, silently threw the fish away and left you ready to cast. It is now
+   context-aware: while something is actually on the line the button turns red and reads
+   **SET!** and performs the set; otherwise it reels in *and says so*.
+3. **The fight was invisible.** All the reeling was real — `F.dist` genuinely falls when
+   you hold — but none of it was on screen: the fish's y was `HOR+52+F.dist*24`, so
+   across an entire fight it travelled about **30 pixels** and never appeared to come any
+   closer. Proximity now drives a ~160px approach from the horizon to your feet, the
+   shadow swells as she nears, and she pushes a **boil** on the surface so you can see
+   where she is even when she's deep. Added with it: a **FISH ON** moment you cannot miss,
+   a **rod that pumps** while you hold, and a **reel handle that actually turns**.
 
 ## Milestones (this README is the authority)
 

@@ -232,9 +232,16 @@ let pt=P(480,297); await page.mouse.click(pt.x,pt.y); // "open the box"
 await page.waitForTimeout(300);
 ok(await ev(()=>__bite.G.mode==='lake'),'title button works with a real mouse');
 const c0=await ev(()=>__bite.save().casts);
-pt=P(300,330); await page.mouse.move(pt.x,pt.y); await page.mouse.down();
+// ⚠️ AIM LOW ON PURPOSE. The bobber's y used to be a HASH OF ITS X (`(wx%37)/37`),
+// so it ignored the aim entirely and every cast at a given x landed at the same
+// depth — aiming at the near bank missed by ~160px. Assert it lands where we aimed.
+const AIMY=430;
+pt=P(300,AIMY); await page.mouse.move(pt.x,pt.y); await page.mouse.down();
 await page.waitForTimeout(140); await page.mouse.up(); await page.waitForTimeout(800);
-ok(await ev(()=>__bite.save().casts)===c0+1,'a real mouse cast lands in the water');
+const castRes=await ev(a=>({casts:__bite.save().casts,by:__bite.G.line?__bite.G.line.by:null,aim:a}),AIMY);
+ok(castRes.casts===c0+1,'a real mouse cast lands in the water');
+ok(castRes.by!==null&&Math.abs(castRes.by-AIMY)<=6,
+   'the bobber lands where you aimed (aim '+AIMY+' → '+castRes.by+')');
 pt=P(856,26); await page.mouse.click(pt.x,pt.y); // the box button
 await page.waitForTimeout(250);
 ok(await ev(()=>__bite.G.overlay==='box'),'tackle box opens via real click');

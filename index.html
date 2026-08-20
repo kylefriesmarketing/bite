@@ -1104,14 +1104,21 @@ function loseLure(id){ if(SAVE.lures[id]){SAVE.lures[id].lost=1} if(SAVE.rig.id=
 function refindable(){return LURES.filter(l=>SAVE.lures[l.id]&&SAVE.lures[l.id].lost)}
 
 /* ---- casting ---- */
-function tryCast(wx_){
+function tryCast(wx_,wy_){
   if(SAVE.rig.type==='worm'&&SAVE.worms<=0){toast('out of worms. the hose end of the garden knows more.');return}
   const spot=spotAt(wx_);
   if(SPOTS[spot].locked&&!SAVE.farOpen){toast('the far bank. dad’ll drive you. someday.');return}
   SAVE.casts++; G.sessionCasts++; SAVE.started=true; markSave();
   const blessed=G.blessed; G.blessed=false;
   const spit=G.spitNext; G.spitNext=false;
-  G.line={spot:spot,bx:wx_,by:HOR+40+((wx_%37)/37)*((BANKY-HOR)*.35),st:'flight',t:0,anim:{type:'idle',ph:0},
+  /* ⚠️ THE BOBBER USED TO IGNORE WHERE YOU AIMED. by was HOR+40+((wx_%37)/37)*… —
+   * a HASH OF THE X COORDINATE. The aiming reticle drew under your finger and then
+   * the bobber landed at some other depth entirely, up to a hundred pixels off.
+   * Kyle reported it as "it doesn't go where you put it", which is exactly what it
+   * was. The aim's y is now carried through; the fallback is only for callers that
+   * don't aim (the QA cast hook). */
+  const by_=wy_!=null?clamp(wy_,HOR+26,BANKY-14):HOR+40+((wx_%37)/37)*((BANKY-HOR)*.35);
+  G.line={spot:spot,bx:wx_,by:by_,st:'flight',t:0,anim:{type:'idle',ph:0},
     script:null,ev:null,evT:0,waitT:0,boost:(blessed?1.35:1)*(spit?1.07:1)*(EXT.jar&&phase()==='night'?1.1:1),
     retrieve:SAVE.rig.type==='lure',lx:1,ly:8,duty:[],toggles:0,cad:0,snag:null,strike:null,fig8Done:false};
   SFX.cast();
@@ -1310,7 +1317,7 @@ function hookFish(f){
   const line=G.line,sp=f.sp,s=SP[sp],size=sizeNow(f);
   line.ev=null;
   G.fight={f:f,sp:sp,size:size,T:24,line:60,stam:s.fight.stam*size*.55,seq:fightScript(sp,size),
-    seg:0,segT:0,dist:1,surf:false,flat:false,flatT:0,thrashT:0,t:0,
+    seg:0,segT:0,dist:1,surf:false,flat:false,flatT:0,thrashT:0,t:0,onT:1.5,
     cap:s.sig.gentle?52:100,jumpWin:0,weed:null,weedT:0,spot:line.spot,dir:(simR()<.5?-1:1),done:false};
   G.mode='fight'; SFX.splash(size/18); AU.drag=true;
   if(sp==='mayor')SFX.boom();
@@ -1347,6 +1354,7 @@ function updFight(dt){
         F.weedDone=true;F.weed={dir:F.dir,t:1.5};toast(F.dir<0?'she’s making for the pads — pull RIGHT':'she’s making for the weeds — pull LEFT')}
       break;
   }
+  if(F.onT>0)F.onT-=dt;
   if(F.jumpWin>0){F.jumpWin-=dt;
     if(G.holding&&F.jumpWin>0&&!F.jPen){F.jPen=true;F.T+=30;
       if(F.T>F.cap*.78&&simR()<.35){endFight('jump');return}}
@@ -1782,9 +1790,10 @@ function renderLakeHUD(L){
   }
   if(G.line&&!G.line.retrieve){
     txt(SPOTS[G.line.spot].label,worldX(G.line.bx),HOR-12,12,'rgba(240,246,238,.55)','center',true);
+    const onIt=G.line.ev&&!G.line.ev.turtle;
     btn('reelin',W-104,H-70,96,26);
-    X.fillStyle='rgba(14,22,20,.6)';rrect(W-104,H-70,96,26,8);X.fill();
-    txt('reel in',W-56,H-57,12.5,'#d8e4da','center');
+    X.fillStyle=onIt?'rgba(150,40,32,.85)':'rgba(14,22,20,.6)';rrect(W-104,H-70,96,26,8);X.fill();
+    txt(onIt?'SET!':'reel in',W-56,H-57,12.5,onIt?'#ffe0d6':'#d8e4da','center');
   }
   if(G.iceOut){
     const flag=G.ice&&G.ice.holes.some(h=>h.tip&&h.tip.flag);
@@ -1862,7 +1871,15 @@ function renderLake(L){
 function renderFight(L){
   drawScene(L);
   const F=G.fight,a=rodAnchor();
-  const fx=worldX(G.line?G.line.bx:SC.cam+W/2)+F.dir*F.dist*90*.4, fy=HOR+52+F.dist*24;
+  /* ⚠️ THE FIGHT USED TO BE INVISIBLE. fy was HOR+52+F.dist*24 and fx moved by
+   * F.dist*36 — so across an ENTIRE fight the fish travelled about 30px and never
+   * appeared to come any closer. All the reeling was real (F.dist genuinely falls
+   * when you hold) but none of it was on screen, which is why it read as "there is
+   * no reeling in so you know when you have a fish". Now proximity drives a 160px
+   * approach from the horizon to your feet, and the fish swells as it nears. */
+  const near=clamp(1-F.dist/1.2,0,1), prox=.62+near*.85;
+  const bx0=worldX(G.line?G.line.bx:SC.cam+W/2);
+  const fx=lerp(bx0,W/2,near*.35)+F.dir*F.dist*46, fy=lerp(HOR+26,BANKY-44,near);
   // fish presence
   if(F.surf){
     if(F.flat){X.save();X.globalAlpha=.96;drawFish(F.sp,F.size,fx,fy-6,.7,{rot:.12});X.restore();
@@ -1871,8 +1888,14 @@ function renderFight(L){
       drawFish(F.sp,F.size,0,-4,.62);X.restore();
       if(!RM)for(let i=0;i<5;i++)blob(fx+Math.sin(SC.t*30+i*2)*F.size*1.6,fy-6-Math.abs(Math.sin(SC.t*26+i))*10,2,3,'rgba(230,242,248,.6)')}
   }else{
-    X.save();X.globalAlpha=.55;
-    X.fillStyle='rgba(14,26,20,.8)';X.beginPath();X.ellipse(fx,fy,F.size*1.9,F.size*.34,0,0,7);X.fill();X.restore();
+    X.save();X.globalAlpha=.42+near*.34;
+    X.fillStyle='rgba(14,26,20,.8)';X.beginPath();X.ellipse(fx,fy,F.size*1.9*prox,F.size*.34*prox,0,0,7);X.fill();X.restore();
+    // the boil she pushes up — the surface says where she is even when she is deep
+    if(!RM){const bo=1+Math.sin(SC.t*5)*.12;
+      X.strokeStyle='rgba(235,245,250,'+(.10+near*.30)+')';X.lineWidth=1.2;
+      X.beginPath();X.ellipse(fx,fy,F.size*2.2*prox*bo,F.size*.5*prox*bo,0,0,7);X.stroke();
+      X.strokeStyle='rgba(235,245,250,'+(.06+near*.18)+')';
+      X.beginPath();X.ellipse(fx,fy,F.size*3.4*prox*bo,F.size*.8*prox*bo,0,0,7);X.stroke()}
     const seg=F.seq[Math.min(F.seg,F.seq.length-1)];
     if(seg&&(seg.k==='run'||seg.k==='roll')&&!RM){
       X.strokeStyle='rgba(235,245,250,.4)';X.lineWidth=1.4;
@@ -1882,9 +1905,18 @@ function renderFight(L){
       blob(fx,fy,F.size*1.4,4,'rgba(235,245,250,.5)');
       txt('she’s out of the water — hands off!',W/2,HOR-14,14,'#ffe9b0','center',true)}
   }
-  // line + rod bend by tension
-  const bend=.1+ (F.T/100)*.85;
-  drawRodLine(a.x-16-bend*20,a.y-118+bend*26,bend,fx,fy-6,true);
+  // line + rod bend by tension, plus a visible PUMP while you are actually reeling
+  const pump=(G.holding&&!RM)?Math.sin(SC.t*7)*.055:0;
+  const bend=.1+ (F.T/100)*.85 + pump;
+  const rgx=a.x-16-bend*20, rgy=a.y-118+bend*26;
+  drawRodLine(rgx,rgy,bend,fx,fy-6,true);
+  {const hx=a.x-6, hy=a.y-96+pump*40;          // the reel, turning while you hold
+   X.strokeStyle='#2e2a22';X.lineWidth=2.2;
+   X.beginPath();X.arc(hx,hy,7,0,7);X.stroke();
+   const ang=G.holding?SC.t*11:SC.t*.6;
+   X.strokeStyle='#b8a05a';X.lineWidth=2.4;
+   X.beginPath();X.moveTo(hx,hy);X.lineTo(hx+Math.cos(ang)*9,hy+Math.sin(ang)*9);X.stroke();
+   X.fillStyle='#d8c98a';blob(hx+Math.cos(ang)*10.5,hy+Math.sin(ang)*10.5,2.4,2.4,'#d8c98a')}
   if(F.T>78&&!RM){for(let i=0;i<3;i++)blob(lerp(fx,a.x,.3+i*.2),lerp(fy,a.y-100,.3+i*.2)-4,1.4,1.4,'rgba(240,248,252,.5)')}
   // HUD
   BTNS=[];
@@ -1894,6 +1926,12 @@ function renderFight(L){
   const runHint=seg2&&(seg2.k==='run'||seg2.k==='roll');
   txt(runHint?'she’s running — let her':'hold to reel',24,50,12,'#cfdcca','left',true,.85);
   if(F.weed)txt(F.weed.dir<0?'⟶ pull RIGHT':'⟵ pull LEFT',W/2,HOR-36,17,'#ffd9a0','center');
+  if(F.onT>0){                                  // you cannot miss that you are attached
+    const k=clamp(F.onT/1.5,0,1), pop=1+(1-k)*(1-k)*.35;
+    X.save();X.translate(W/2,HOR-52);X.scale(pop,pop);X.globalAlpha=Math.min(1,k*2.2);
+    txt('FISH ON',0,0,34,'#ffe9b0','center');
+    txt('hold to reel · let go when she runs',0,24,13.5,'rgba(255,233,176,.8)','center',true);
+    X.restore()}
   if(F.surf){btn('net',W/2-60,BANKY+10,120,40);
     const g2=F.flat?'#e8d6a4':'#8a8f86';
     X.fillStyle='rgba(14,22,18,.8)';rrect(W/2-60,BANKY+10,120,40,12);X.fill();
@@ -2171,7 +2209,14 @@ function doBtn(id){
       if(SAVE.lastCasts>=3){G.blessed=true;SAVE.lastCasts=0;supNote('third');toast('the third last cast. say nothing.')}
       else toast('one more. the honest lie.'); markSave(); break;
     case 'gohome': G.overlay=null;G.line=null;G.fight=null;AU.drag=false;AU.reel=0;G.mode='title';SAVE.lastCasts=0;saveNow(); break;
-    case 'reelin': G.line=null; break;
+    /* ⚠️ THIS BUTTON ATE FISH. It said "reel in" and did `G.line=null` with no
+     * message — so a player with a fish on the line pressed the thing labelled
+     * REEL IN, which is the correct instinct, and the fish silently vanished and
+     * the rod was ready to cast again. Kyle hit this in play. Now the button is
+     * whatever the moment needs: while something is actually on it, it is the SET. */
+    case 'reelin':
+      if(G.line&&G.line.ev&&!G.line.ev.turtle){ trySet(); break }
+      G.line=null; toast('brought it back in.'); break;
     case 'net': tryNet(); break;
     case 'rig:worm': SAVE.rig={type:'worm'};markSave(); break;
     case 'dig': SAVE.worms=Math.min(18,SAVE.worms+TUNE.wormsDig);SFX.scribble();
@@ -2251,7 +2296,7 @@ CV.addEventListener('pointermove',e=>{
 });
 addEventListener('pointerup',e=>{
   const p=G.pxy||{x:0,y:0};
-  if(G.aim){tryCast(clamp(p.x+SC.cam,30,PANW-16));G.aim=null}
+  if(G.aim){tryCast(clamp(p.x+SC.cam,30,PANW-16),G.aim.y);G.aim=null}
   G.camDrag=null; G.holding=false; G.steer=0;
 });
 addEventListener('keydown',e=>{
@@ -2332,7 +2377,8 @@ window.__bite={G:G,SC:SC,SP:SP,SPOTS:SPOTS,LID:LID,TUNE:TUNE,DBG:DBG,
     h.tip.t=h.tip.next+1; tickIce(.016); return h.tip.flag?'flagged: '+(h.tip.f&&h.tip.f.sp):'no taker' },
   runTip:function(h){ h=h||G.ice.holes.find(q=>q.tip&&q.tip.flag); if(!h)return 'no flag';
     G.line=null; runTipUp(h); return G.mode },
-  cast:function(spot){tryCast((SPOTS[spot].x0+SPOTS[spot].x1)/2)},
+  cast:function(spot,y){tryCast((SPOTS[spot].x0+SPOTS[spot].x1)/2,y)},
+  castAt:function(wx_,y){tryCast(wx_,y)},
   forceBite:function(sp){
     const f=SAVE.pop.find(function(q){return q.sp===sp&&q.sU<Date.now()});
     if(!f)return 'none rested';
