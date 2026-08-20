@@ -1,6 +1,6 @@
 # BITE
 ### quiet fishing at Mud Lake, done honestly · a DIRTY BOY DEVS game
-**v1.2 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
+**v1.3 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
 **Live: https://kylefriesmarketing.github.io/bite/**
 
 The tackle box in the garage is dad's. Inside it: a red-and-white bobber, a coffee can's
@@ -116,6 +116,23 @@ casts entirely (0%), which pillar 2 does not want. Measured before→after, same
 ~74s, and the honest blank tail survives at night (9%→3%). All four numbers came from
 `eventGap` and `events`; the bite curve is back at its shipped values and is now in `TUNE`
 rather than hardcoded inline.
+
+*And the other half of "the wait dragged": pace was only half the complaint — pillar 2
+says the wait is **company**, and the lake had almost none. What was there was static or
+conditional: a heron that was literally a statue drawn identically every frame, a gar that
+only basks at clear summer noon, carp tails only on warm days. Nothing flew. Added:*
+- **Rises** — a fish takes something off the top somewhere you are *not* casting, weighted
+  by the same activity model the bite tables use, so it never lies about where fish are.
+  ~1 every 6s, one alive at a time. ⚠️ **Silent on purpose**: sound in this game is the
+  BITE language (fish-by-ear is the accessibility path *and* the mastery flex), so a rise
+  you could hear would lie to the ear.
+- **The heron works** — sways while she waits, then stabs, and the water rings where the
+  beak went in. The bible calls her "a living fish-finder if you watch her," which only
+  pays off if there is something to watch.
+- **Dragonflies** — warm daylight, patrolling the near water and the pads, and now and
+  then they settle on your bobber. ⚠️ they patrol *near*: at mid-lake distance they just
+  read as floating twigs (captured, then moved in).
+All three honor `prefers-reduced-motion`.
 
 **M3b ⬜ Species portraits — still open, still Kyle's call.** Bible §13 reserves "the art
 budget" for 15 painted catch-card portraits. The build ships **zero external assets**:

@@ -596,7 +596,8 @@ function fishSilhouette(spKey,cx,cy,scale){
 }
 
 /* ---- the lake scene ---- */
-const SC={cam:0, ripples:[], drops:[], rings:[], nervous:[], swirls:[], fireflies:null, t:0, dt:.016};
+const SC={cam:0, ripples:[], drops:[], rings:[], nervous:[], swirls:[], fireflies:null,
+          rises:[], dflies:null, t:0, dt:.016};
 function worldX(wx_){return wx_-SC.cam}
 function waterYat(wx_){ // surface y for a given panorama x (distance illusion: constant)
   return HOR+8; }
@@ -880,14 +881,25 @@ function drawTells(L,t){
   if(hs&&!L.night){
     const hx2=worldX((SPOTS[hs].x0+SPOTS[hs].x1)/2)+40, hy=HOR+40;
     if(hx2>-20&&hx2<W+20){
+      /* ⚠️ she used to be a STATUE — drawn once, identical every frame, standing at
+       * the hottest spot forever. The bible calls her "a living fish-finder if you
+       * watch her", which only pays off if there is something to watch. She sways
+       * while she waits, then stabs, and the water rings where the beak went in. */
+      const sp=RM?0:(t*.13)%1, stab=sp>.88?Math.sin((sp-.88)/.12*Math.PI):0;
+      const sy=RM?0:Math.sin(t*.5)*1.1;
+      const nkx=hx2+2+stab*7, nky=hy-38+sy;
+      const hdx=hx2+8+stab*15, hdy=hy-47+sy+stab*45;
       X.strokeStyle='#3d4852';X.lineWidth=2;
       X.beginPath();X.moveTo(hx2,hy);X.lineTo(hx2,hy-26);X.stroke();
-      blob(hx2,hy-32,9,7,'#5a6874'); X.strokeStyle='#5a6874';X.lineWidth=2.4;
-      X.beginPath();X.moveTo(hx2+2,hy-38);X.lineTo(hx2+7,hy-46);X.stroke();
-      blob(hx2+8,hy-47,4,3,'#5a6874'); X.strokeStyle='#c9a23c';X.lineWidth=1.6;
-      X.beginPath();X.moveTo(hx2+11,hy-47);X.lineTo(hx2+19,hy-45);X.stroke();
-      blob(hx2+8,hy-48,1.1,1.1,'#1c2026');
+      blob(hx2,hy-32+sy*.5,9,7,'#5a6874'); X.strokeStyle='#5a6874';X.lineWidth=2.4;
+      X.beginPath();X.moveTo(nkx,nky);X.lineTo(hdx,hdy);X.stroke();
+      blob(hdx,hdy,4,3,'#5a6874'); X.strokeStyle='#c9a23c';X.lineWidth=1.6;
+      X.beginPath();X.moveTo(hdx+3,hdy);X.lineTo(hdx+11,hdy+stab*4-(1-stab)*2);X.stroke();
+      blob(hdx,hdy-1,1.1,1.1,'#1c2026');
       blob(hx2,hy+3,12,2.5,'rgba(10,16,12,.3)');
+      if(stab>.55){const sr=6+(1-stab)*18;
+        X.strokeStyle='rgba(235,245,240,'+(.32*(stab-.55)/.45)+')';X.lineWidth=1.2;
+        X.beginPath();X.ellipse(hdx+6,hy+2,sr,sr*.3,0,0,7);X.stroke()}
     }
   }
   if(SC.garOut){
@@ -918,6 +930,24 @@ function drawTells(L,t){
   for(const sw of SC.swirls){ const sx=worldX(sw.x); if(sx<-40||sx>W+40)continue;
     X.strokeStyle='rgba(230,240,235,'+(.3*(1-sw.a))+')';X.lineWidth=1.6;
     X.beginPath();X.ellipse(sx,sw.y,10+sw.a*26,(10+sw.a*26)*.3,0,0,7);X.stroke();
+  }
+  for(const rz of SC.rises){ const rx=worldX(rz.x); if(rx<-50||rx>W+50)continue;
+    const a=rz.a, sz=rz.big?32:15;
+    X.strokeStyle='rgba(235,245,240,'+(.34*(1-a))+')';X.lineWidth=rz.big?1.8:1.1;
+    X.beginPath();X.ellipse(rx,rz.y,4+a*sz,(4+a*sz)*.28,0,0,7);X.stroke();
+    if(a<.5){X.strokeStyle='rgba(235,245,240,'+(.18*(1-a*2))+')';X.lineWidth=1;
+      X.beginPath();X.ellipse(rx,rz.y,2+a*sz*.45,(2+a*sz*.45)*.28,0,0,7);X.stroke()}
+  }
+  if(SC.dflies)for(const d of SC.dflies){
+    let px=d.x, py=d.y;
+    if(d.rest&&G.line&&G.line.bx!=null){ px=worldX(G.line.bx); py=G.line.by-7 }
+    if(px<-20||px>W+20)continue;
+    const wg=RM?.5:(Math.sin(t*40+d.ph)*.5+.5);
+    X.strokeStyle='rgba(186,224,232,'+(.20+wg*.20)+')';X.lineWidth=1;
+    X.beginPath();X.moveTo(px-7,py-2);X.lineTo(px+6,py-3);X.stroke();
+    X.strokeStyle=mix('#2b4a52','#0d1a1e',L.dim*.6);X.lineWidth=1.8;
+    X.beginPath();X.moveTo(px-5,py);X.lineTo(px+6,py+1);X.stroke();
+    blob(px-6,py,1.7,1.7,mix('#3d7f8a','#12262a',L.dim*.6));
   }
 }
 
@@ -1346,6 +1376,51 @@ function updWorld(dt){
     if(pred>1.2&&!RM)SC.swirls.push({x:SPOTS.weed.x0+Math.random()*(SPOTS.weed.x1-SPOTS.weed.x0),y:HOR+34,a:0})}
   for(const sw of SC.swirls)sw.a+=dt*.5;
   SC.swirls=SC.swirls.filter(s2=>s2.a<1);
+  /* RISES — a fish takes something off the top somewhere you are NOT casting.
+   * The strongest "this water is alive" cue in real fishing, and it quietly points
+   * at where the fish actually are (weighted by the same activity model the bite
+   * tables use, so it never lies). This is what makes the wait company.
+   * ⚠️ SILENT on purpose. Sound in this game is the BITE language — fish-by-ear is
+   * the accessibility path and the mastery flex — so a rise you could hear would
+   * lie to the ear. Rises are for the eyes only. */
+  SC.riseAcc=(SC.riseAcc||3)-dt;
+  if(SC.riseAcc<=0){
+    SC.riseAcc=2.6+Math.random()*5.5;
+    if(!RM){
+      const ks=[]; let tot=0;
+      for(const k in SPOTS){ if(SPOTS[k].locked&&!SAVE.farOpen)continue;
+        let h3=0; for(const p of ['bluegill','crappie','largemouth','perch'])h3+=actMult(p,k);
+        ks.push({k:k,w:h3}); tot+=h3; }
+      if(tot>.2){ let x=Math.random()*tot, pk=ks[0];
+        for(const o of ks){ x-=o.w; if(x<=0){pk=o;break} }
+        const s=SPOTS[pk.k];
+        SC.rises.push({x:s.x0+Math.random()*(s.x1-s.x0),
+                       y:HOR+12+Math.random()*((BANKY-HOR)*.5), a:0, big:Math.random()<.16}); }
+    }
+  }
+  for(const rz of SC.rises)rz.a+=dt*.7;
+  SC.rises=SC.rises.filter(rz=>rz.a<1);
+  /* DRAGONFLIES — warm daylight only. They hover, dart, and now and then settle on
+   * your bobber, which is the most "I have actually been here" moment on a small
+   * lake. Screen-space like the fireflies: they are at your position, not the
+   * lake's, so they travel with you instead of parallaxing away. */
+  const dfWarm=(realMonth()>=5&&realMonth()<=9)&&phase()!=='night';
+  if(dfWarm&&!RM){
+    // ⚠️ they patrol the NEAR water, not mid-lake: real dragonflies hug the shore
+    // and the pads, and at mid-lake distance they just read as floating twigs.
+    if(!SC.dflies){ SC.dflies=[]; const dr=lcg(88);
+      for(let i=0;i<3;i++)SC.dflies.push({x:dr()*W,y:HOR+100+dr()*130,tx:dr()*W,
+        ty:HOR+100+dr()*130,ph:dr()*7,rest:0,restT:0,spd:.6+dr()*.7}) }
+    for(const d of SC.dflies){
+      if(d.rest){ d.restT-=dt; if(d.restT<=0)d.rest=0; continue }
+      const ddx=d.tx-d.x, ddy=d.ty-d.y, dd=Math.hypot(ddx,ddy)||1;
+      if(dd<7){ d.tx=20+Math.random()*(W-40); d.ty=HOR+96+Math.random()*140 }
+      else { d.x+=ddx/dd*d.spd*54*dt*(1+Math.sin(SC.t*7+d.ph)*.3);
+             d.y+=ddy/dd*d.spd*54*dt+Math.sin(SC.t*9+d.ph)*.6 }
+      if(G.line&&!G.line.retrieve&&G.line.st!=='flight'&&Math.random()<dt*.06){
+        d.rest=1; d.restT=2.5+Math.random()*4.5 }
+    }
+  } else if(SC.dflies&&!dfWarm) SC.dflies=null;
   // mayor ambient sighting
   if(G.mode==='lake'&&SAVE.started){
     G.sightT-=dt;
