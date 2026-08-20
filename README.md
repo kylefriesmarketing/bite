@@ -62,17 +62,49 @@ worst. In December the lake freezes and the doorway is gone until thaw. That's t
   console errors. `npm i playwright` then `node test.mjs`.
 - QA handles live on `window.__bite`.
 
-## Ship checklist (per ROADMAP §7 — repo on day one)
+## Milestones (this README is the authority)
 
-1. ✅ `kylefriesmarketing/bite` — pushed 2026-08-19.
-2. ✅ GitHub Pages from `main` / root → live and verified.
-3. ✅ Brief status line in `game-briefs/garage.md` + the `CATALOG.md` row → shipped.
-4. ⬜ **Hub-side move-in — now DUE: the garage opened in the hub on 2026-08-19**
-   (`games-hub` commit 7403827, "THE GARAGE: the tape comes off the last door").
-   Needs, in `games-hub`: the tackle-box doorway mesh + `tag()` hint in `js/hallway.js`
-   (beside the workbench, in `enterGarage`'s space), the list-view card in `index.html`,
-   and the collectible — *the scale (the size of a poker chip)*, earn condition
-   `mayor.landed` from `bite-save`. Poster texture is already cut and waiting at
-   `games-hub/assets/tex/poster-bite.jpg` (512×768 q85, house recipe).
+**M1 ✅ THE SLICE — shipped 2026-08-19, live, 41/41.**
+Audited against the bible 2026-08-19 and it is content-complete, not a slice:
+all **15 species** with signatures + fight shapes (incl. the unhookable gar and the
+mayor), **8 spots** (the bible specced 7 — the sunken rowboat became its own), **12
+lures** with retrieve verbs, **128 fish** across the population table, the seasonal
+month curves (crappie spring feast ×1.6, bowfin August, carp summer, pike summer
+slowdown, Dec–Feb freeze), the live surface tells (heron on the hottest spot, nervous
+water, predator swirls, gar basking on clear summer noons), 9 loss lessons, 5
+superstitions, the old timer, the turtle, the census, sore-mouth memory, the figure-8,
+and the mayor's full arc. Repo + Pages + brief + catalog all green.
+
+**M2 ⬜ MOVE-IN — due now.** The garage opened in the hub on 2026-08-19 (`games-hub`
+commit 7403827), which retired this game's "when the garage opens" deferral. Needs, in
+`games-hub`: the tackle-box doorway mesh + `tag()` hint in `js/hallway.js` (in
+`enterGarage`'s space), the list-view card in `index.html`, and the collectible —
+*the scale (the size of a poker chip)*, earn condition `mayor.landed` from `bite-save`.
+The poster texture is already cut and committed at `games-hub/assets/tex/poster-bite.jpg`
+(512×768 q85, house recipe). ⚠️ those three hub files are the workspace's hottest
+collision surface — check mtimes and land it in one small commit.
+
+**M3 ⬜ THE PAINTED LAKE — the one budget the bible reserved and the build never spent.**
+Bible §13 calls for "the catch-card portrait (painted once per species — 15 small
+illustrations, **the art budget**)". The build ships **zero external assets**: every fish
+is drawn by one procedural `drawFish()` off each species' `pal` + `shape` params, and it
+serves the swimming fish, the catch card and the journal alike. That may well be correct —
+§13 also says "primitives over asset packs" is house style, and the procedural fish cost
+nothing and never mismatch the lake's palette. **Kyle's call**, and the only real
+bible-vs-build divergence in the game.
+
+**M4 ⬜ THE SECOND SEASON — ice fishing.** The bible defers it by name (§7): "deliberately
+NOT in v1 — it's the obvious second-season expansion: the shanty, the auger, the perch
+kings." The lake already goes dark Dec–Feb, so the doorway for it is literally built.
+
+**M5 ⬜ THE CONTRACTS COME ALIVE.** All three sibling games BITE reads are still `status:
+idea` — NIGHT CRAWLERS (`front-yard.md`), SUNDAY DRIVER (`parents-room.md`), GOOD BOY
+(`backyard.md`). BITE runs on its fallbacks today (dig by the hose · far bank at 10
+journal species · a quieter dock). Each one that ships retires a fallback and makes the
+jar, the drive and the dog real. Not BITE's work — BITE is already holding up its end.
+
+**M6 ⬜ LOOSE THREAD.** The gar's frayed-rope lure (§5) — real angling's answer to a bony
+beak, filed in the bible as "a possible far-future easter egg." The one page in the
+journal that is supposed to stay empty, with a way in.
 
 *cast. wait. read. the lake remembers, and so does the book. — DBD*
