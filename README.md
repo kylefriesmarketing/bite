@@ -1,6 +1,6 @@
 # BITE
 ### quiet fishing at Mud Lake, done honestly · a DIRTY BOY DEVS game
-**v1.1 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
+**v1.2 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
 **Live: https://kylefriesmarketing.github.io/bite/**
 
 The tackle box in the garage is dad's. Inside it: a red-and-white bobber, a coffee can's
@@ -56,7 +56,13 @@ worst. In December the lake freezes and the doorway is gone until thaw. That's t
   `&ts=N` speeds the sim.
 - `?probe=1` — seeded 30-day weather table, per-spot heat, and a 1,000-draw species
   distribution (bite tables are tuned from the probe, not vibes).
-- `test.mjs` — full Playwright suite (41 checks): every species landed via the real
+  ⚠️ `test.mjs` used to hardcode a Linux container's chromium path, so `npm i playwright
+  && node test.mjs` could never pass on Kyle's machine. On Windows run:
+  `npm i playwright` then `PW_CHANNEL=chrome node test.mjs` (uses installed Chrome — no
+  130MB browser download). `PW_CHROMIUM=<path>` overrides; the old container path still
+  wins when it actually exists.
+- `test.mjs` — full Playwright suite (41 checks, **41/41 green on Windows 2026-08-19**):
+  every species landed via the real
   pipeline, bobber-grammar timing, the mayor's scripted first break-off and once-per-save
   landing, lure archaeology, sore-mouth memory, winter freeze, save round-trip, zero
   console errors. `npm i playwright` then `node test.mjs`.
@@ -84,14 +90,38 @@ The poster texture is already cut and committed at `games-hub/assets/tex/poster-
 (512×768 q85, house recipe). ⚠️ those three hub files are the workspace's hottest
 collision surface — check mtimes and land it in one small commit.
 
-**M3 ⬜ THE PAINTED LAKE — the one budget the bible reserved and the build never spent.**
-Bible §13 calls for "the catch-card portrait (painted once per species — 15 small
-illustrations, **the art budget**)". The build ships **zero external assets**: every fish
-is drawn by one procedural `drawFish()` off each species' `pal` + `shape` params, and it
-serves the swimming fish, the catch card and the journal alike. That may well be correct —
-§13 also says "primitives over asset packs" is house style, and the procedural fish cost
-nothing and never mismatch the lake's palette. **Kyle's call**, and the only real
-bible-vs-build divergence in the game.
+**M3 ✅ THE PAINTED LAKE — done 2026-08-19, from Kyle's playtest: "the wait dragged and
+the lake looked flat."** Both were real and both were measurable.
+
+*The lake was flat because it had no depth cues*, not because it lacked detail:
+- Everything beyond the water was **two silhouettes inside a 26px sliver**. Three planes
+  now, each lighter and slower than the one in front (aerial perspective).
+- **Atmospheric haze** on the horizon, so the treeline recedes instead of sitting on the
+  water like a sticker. Drifting **mist** in the cool hours.
+- The ripple and sun-glitter rows were spaced **evenly** — the single biggest reason
+  painted water reads as a flat sheet. They now compress toward the horizon and open out
+  at your feet, and so do row pitch, ripple width, stroke weight, wave height and alpha.
+- **A near plane at last**: reeds you stand behind, framing both edges. Sky, far shore and
+  water were all mid-to-far, so the eye had nothing to measure distance against.
+- ⚠️ Fixed while in there: the drop-off and mud-flat tints were hard-edged `fillRect`s —
+  a visible translucent BOX with a vertical seam across the water. Caught in a
+  before/after capture; soft-ended and vertically stepped now.
+
+*The wait dragged because of the GAPS, not the bite share* — my first guess was the bite
+share and the measurement said no. Real activity at any decent spot sums to heat ~61, so
+`eff` saturates the curve; a kinder curve changed almost nothing except deleting blank
+casts entirely (0%), which pillar 2 does not want. Measured before→after, same seeds,
+150 casts per cell: median time to a bite **16.8s→10.1s** at dawn, **17.8s→10.3s** midday,
+**29.8s→16.5s** at night, **25.7s→13.9s** at the drop-off; a cast now runs ~57s instead of
+~74s, and the honest blank tail survives at night (9%→3%). All four numbers came from
+`eventGap` and `events`; the bite curve is back at its shipped values and is now in `TUNE`
+rather than hardcoded inline.
+
+**M3b ⬜ Species portraits — still open, still Kyle's call.** Bible §13 reserves "the art
+budget" for 15 painted catch-card portraits. The build ships **zero external assets**:
+one procedural `drawFish()` off each species' `pal` + `shape` serves the swimming fish,
+the catch card and the journal alike. §13 also says "primitives over asset packs" is house
+style, so this may be correct as-is. Note it would fix neither thing Kyle reported.
 
 **M4 ⬜ THE SECOND SEASON — ice fishing.** The bible defers it by name (§7): "deliberately
 NOT in v1 — it's the obvious second-season expansion: the shanty, the auger, the perch

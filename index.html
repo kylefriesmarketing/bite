@@ -207,11 +207,24 @@ const SUPS = {
 const MONTH_SUN=[ [7.9,17.5],[7.4,18.2],[6.7,18.8],[6.0,19.4],[5.4,20.0],[5.1,20.4],
                   [5.3,20.3],[5.9,19.7],[6.5,18.8],[7.1,17.9],[6.8,16.3],[7.5,16.1] ]; // [sunrise,sunset] by month, MI-ish
 const TUNE = {
-  firstWait:[4,22],        // s to first event (scaled by activity)
-  eventGap:[3,18],         // s between events while waiting
+  /* ⚠️ THE WAIT IS COMPANY, NOT LOADING (pillar 2 — the bar this game lives on).
+   * Kyle played v1.1 and said the wait dragged. Measured, before/after, same seeds,
+   * 150 casts a cell: median time to a bite was 16.8s at dawn, 17.8s midday and
+   * 29.8s at night, inside casts that ran 72-77s.
+   * ⚠️ The cause was NOT the bite share, which was my first guess and wrong — real
+   * activity at any decent spot sums to heat ~61, so `eff` saturates the curve and
+   * a kinder curve changed almost nothing except deleting blank casts entirely
+   * (0%), which the bible does not want: "some casts are nothing" is pillar 2 too.
+   * The drag was the GAPS. Halving them fixes the feel and keeps the honesty. */
+  firstWait:[3,11],        // s to first event (scaled by activity)
+  eventGap:[2.5,9],        // s between events while waiting  (was [3,18] — the drag)
   falseP:.42,              // chance an event is a false bite
   turtleP:.16,             // of false events at mud/dock
-  biteBase:.62,            // chance an event is a real bite (after false roll)
+  biteBase:.2,             // real-bite curve base   ) measured honest — do not
+  biteGain:.075,           // activity's push on it   ) "improve" these without
+  biteFloor:.12,           // the worst honest hour   ) re-running the battery
+  biteCap:.8,
+  events:10,               // events scripted per cast (was 7)
   sporeHrs:48,             // sore-mouth hours after catch
   spookSecs:45,
   wormsDig:6,
@@ -587,6 +600,32 @@ const SC={cam:0, ripples:[], drops:[], rings:[], nervous:[], swirls:[], fireflie
 function worldX(wx_){return wx_-SC.cam}
 function waterYat(wx_){ // surface y for a given panorama x (distance illusion: constant)
   return HOR+8; }
+function drawForeground(L,t){
+  /* ⚠️ The strongest depth cue there is, and the lake had none of it: something NEAR.
+   * Sky, far shore and water are all mid-to-far planes, so the eye had nothing to
+   * measure distance against and read the whole picture as one sheet. These are the
+   * reeds you are standing behind. Deliberately dark (foreground is in shade),
+   * deliberately at the outer edges, and deliberately faded off before they reach
+   * the water you cast into — this is framing, never an obstruction.
+   * They do NOT parallax: they are at your feet, so they travel with you. */
+  const wx=wxFor(0), sway=(wx.wind.str+.25)*wx.wind.dir;
+  const dark=mix(L[6],'#0b1408',.74), head=mix('#6b4a26','#100c07',.55+L.dim*.3);
+  for(const side of [0,1]){
+    const r=lcg(side?73:31);
+    for(let i=0;i<14;i++){
+      const off=r()*80, x0=side? W+12-off : -12+off;
+      const hgt=105+r()*155, lean=(side?-1:1)*(7+r()*17)+sway*11;
+      const tipX=x0+lean+Math.sin(t*.7+i*1.3)*(2.5+Math.abs(sway)*4), tipY=H-40-hgt;
+      X.globalAlpha=clamp(.95-(hgt-105)/340,.42,.95);
+      X.strokeStyle=dark; X.lineWidth=2.8+r()*3.6; X.lineCap='round';
+      X.beginPath(); X.moveTo(x0,H+8);
+      X.quadraticCurveTo(x0+lean*.35,H-40-hgt*.58,tipX,tipY); X.stroke();
+      if(r()<.3){ X.fillStyle=head; X.globalAlpha*=.9;
+        rrect(tipX-2.6,tipY-2,5.2,15,2.6); X.fill() }
+    }
+  }
+  X.globalAlpha=1; X.lineCap='butt';
+}
 function drawScene(L){
   const wx=wxFor(0), t=SC.t;
   // sky
@@ -613,6 +652,15 @@ function drawScene(L){
   }
   // far hills + treeline (parallax with cam)
   const p1=-SC.cam*.12, p2=-SC.cam*.25;
+  /* ⚠️ DEPTH: the whole world beyond the water used to be TWO silhouettes inside a
+   * 26px sliver — measured, and most of why the lake read flat. Three planes now,
+   * each one lighter and slower than the plane in front of it (aerial perspective):
+   * a ridge beyond the trees, the far treeline, then the near shore. */
+  const p0=-SC.cam*.05;
+  X.fillStyle=mix(L[4],L[1],.52);
+  X.beginPath();X.moveTo(0,HOR);
+  for(let x=0;x<=W;x+=20){X.lineTo(x,HOR-46-Math.sin((x+p0)*.0045)*20-Math.sin((x+p0)*.011)*9)}
+  X.lineTo(W,HOR);X.closePath();X.fill();
   X.fillStyle=L[4];
   X.beginPath();X.moveTo(0,HOR);
   for(let x=0;x<=W;x+=16){X.lineTo(x,HOR-26-Math.sin((x+p1)*.008)*16-Math.sin((x+p1)*.021)*7)}
@@ -624,6 +672,13 @@ function drawScene(L){
   // inlet notch in the far shore
   const inx=worldX((SPOTS.inlet.x0+SPOTS.inlet.x1)/2)*1;
   if(inx>-60&&inx<W+60){X.fillStyle=L[3];X.beginPath();X.moveTo(inx-26,HOR);X.quadraticCurveTo(inx,HOR-16,inx+26,HOR);X.closePath();X.fill()}
+  // atmospheric haze — distance washes toward the sky. Without it the treeline sits
+  // on the water like a sticker; with it, the far shore recedes.
+  {const hzT=L.night?.14:(wx.rain?.48:.32);
+   const hz=X.createLinearGradient(0,HOR-54,0,HOR+3);
+   hz.addColorStop(0,mixR(L[1],'#ffffff',.3,0));
+   hz.addColorStop(1,mixR(L[1],'#ffffff',.3,hzT));
+   X.fillStyle=hz;X.fillRect(0,HOR-54,W,57)}
   // water
   g=X.createLinearGradient(0,HOR,0,BANKY);
   g.addColorStop(0,L[2]); g.addColorStop(.25,L[3]); g.addColorStop(1,mix(L[3],'#0c1a14',.35));
@@ -640,25 +695,41 @@ function drawScene(L){
     const dayT=clamp((L.h-L.sr)/(L.ss-L.sr),0,1), gx=lerp(120,W-120,dayT);
     const low=(dayT<.18||dayT>.82), ga=(low?.34:.13)*(wx.sky==='clear'?1:.4);
     X.fillStyle=mixR(L[7],'#ffffff',.3,1);
-    const gr=lcg(hash32('glit'));
-    for(let i=0;i<26;i++){const gy=HOR+8+i*((BANKY-HOR-40)/26),
-      jx=gx+(gr()-.5)*(26+i*3.4)+Math.sin(t*1.3+i*2.2)*5,
-      gw=5+gr()*12*(1-i/34);
-      X.globalAlpha=ga*(1-i/30)*(.5+.5*Math.abs(Math.sin(t*2+i*1.7)));
-      X.fillRect(jx,gy,gw,1.5)}
+    // same perspective curve as the ripples, so the sun path narrows to a POINT at
+    // the horizon and opens into a wedge at your feet — the shape real glare makes.
+    const gr=lcg(hash32('glit')), GN=34, gspan=BANKY-HOR-30;
+    for(let i=0;i<GN;i++){
+      const u=i/(GN-1), gy=HOR+7+gspan*Math.pow(u,1.95),
+        jx=gx+(gr()-.5)*(14+u*190)+Math.sin(t*1.3+i*2.2)*(2+u*8),
+        gw=3+gr()*(5+u*22);
+      X.globalAlpha=ga*(.35+u*.8)*(.5+.5*Math.abs(Math.sin(t*2+i*1.7)));
+      X.fillRect(jx,gy,gw,1+u*2.2)}
     X.globalAlpha=1;
   }
   // waterline contact edge
   X.fillStyle=mixR(L[7],'#ffffff',.25,L.night?.10:.28);X.fillRect(0,HOR,W,1.2);
   // drop-off darkening
   const d0=worldX(SPOTS.drop.x0), d1=worldX(SPOTS.drop.x1+140);
-  if(d1>0&&d0<W){const dg=X.createLinearGradient(d0,0,d0+70,0);
-    dg.addColorStop(0,'rgba(10,24,26,0)');dg.addColorStop(1,'rgba(8,20,24,.35)');
-    X.fillStyle=dg;X.fillRect(d0,HOR+10,70,BANKY-HOR-30);
-    X.fillStyle='rgba(8,20,24,.35)';X.fillRect(d0+70,HOR+10,Math.min(W,d1)-(d0+70),BANKY-HOR-30)}
+  /* ⚠️ this was a hard-edged fillRect — a visibly translucent BOX laid over the
+   * water, with a straight vertical seam at its right edge and a straight line
+   * where it stopped short of the bank. Caught in a before/after capture. Soft at
+   * both ends now, and stepped vertically so it fades instead of ending. */
+  if(d1>0&&d0<W){
+    const dg=X.createLinearGradient(d0,0,d1,0);
+    dg.addColorStop(0,'rgba(8,20,24,0)');   dg.addColorStop(.25,'rgba(8,20,24,.32)');
+    dg.addColorStop(.75,'rgba(8,20,24,.32)');dg.addColorStop(1,'rgba(8,20,24,0)');
+    X.fillStyle=dg; const dh=(BANKY-HOR-6)/3;
+    for(let s=0;s<3;s++){X.globalAlpha=[.45,1,.55][s];X.fillRect(d0,HOR+6+s*dh,d1-d0,dh+1)}
+    X.globalAlpha=1;}
   // mud flats tint
   const m0=worldX(SPOTS.mud.x0),m1=worldX(SPOTS.mud.x1);
-  if(m1>0&&m0<W){X.fillStyle='rgba(96,74,44,.22)';X.fillRect(m0,HOR+8,m1-m0,BANKY-HOR-20)}
+  if(m1>0&&m0<W){                        // same soft treatment as the drop-off
+    const mg=X.createLinearGradient(m0,0,m1,0);
+    mg.addColorStop(0,'rgba(96,74,44,0)');   mg.addColorStop(.3,'rgba(96,74,44,.22)');
+    mg.addColorStop(.7,'rgba(96,74,44,.22)');mg.addColorStop(1,'rgba(96,74,44,0)');
+    X.fillStyle=mg; const mh=(BANKY-HOR-6)/3;
+    for(let s=0;s<3;s++){X.globalAlpha=[.5,1,.6][s];X.fillRect(m0,HOR+6+s*mh,m1-m0,mh+1)}
+    X.globalAlpha=1;}
   // weed edge — dark water below, thin reeds above, stalk shadows between
   const w0=worldX(SPOTS.weed.x0),w1=worldX(SPOTS.weed.x1);
   if(w1>0&&w0<W){
@@ -673,12 +744,18 @@ function drawScene(L){
       X.beginPath();X.moveTo(sx2,HOR+8);
       X.quadraticCurveTo(sx2+2,HOR-4,sx2+3+Math.sin(t*.9+i)*2.4,HOR-13-((i*13)%7));X.stroke()}
   }
-  // ripple lines
-  X.strokeStyle=mixR(L[7],'#ffffff',.2,L.night?.06:.13);X.lineWidth=1.1;
-  for(let i=0;i<16;i++){const ry=HOR+16+i*((BANKY-HOR-30)/16),
-    ph2=t*(6+i*1.5)*(wx.wind.str+.3)*wx.wind.dir, wid=30+i*9;
-    for(let x=-40+((ph2+i*53)%(wid*2));x<W+40;x+=wid*2){
-      X.beginPath();X.moveTo(x,ry);X.quadraticCurveTo(x+wid*.5,ry-1.6,x+wid,ry);X.stroke()}}
+  /* ripple lines — spaced by PERSPECTIVE, not evenly. Even spacing was the single
+   * biggest reason the water read as a flat painted sheet: real ripples crowd
+   * together toward the horizon and open out at your feet. Row pitch, ripple width,
+   * stroke weight, wave height and alpha now all open up together. */
+  {const RN=22, rspan=BANKY-HOR-26;
+   for(let i=0;i<RN;i++){
+     const u=i/(RN-1), ry=HOR+7+rspan*Math.pow(u,1.95), wid=18+150*Math.pow(u,1.6),
+       ph2=t*(5+u*22)*(wx.wind.str+.3)*wx.wind.dir;
+     X.strokeStyle=mixR(L[7],'#ffffff',.2,(L.night?.05:.09)+u*(L.night?.05:.12));
+     X.lineWidth=.9+u*1.5;
+     for(let x=-60+((ph2+i*53)%(wid*2));x<W+60;x+=wid*2){
+       X.beginPath();X.moveTo(x,ry);X.quadraticCurveTo(x+wid*.5,ry-(1+u*2.6),x+wid,ry);X.stroke()}}}
   // wind foam on windward side
   if(wx.wind.str>.55){const sideX=wx.wind.dir>0?W*.7:W*.05;
     X.fillStyle='rgba(255,255,255,.10)';
@@ -688,10 +765,22 @@ function drawScene(L){
     for(const d of SC.drops){X.beginPath();X.moveTo(d.x,d.y);X.lineTo(d.x-2,d.y+9);X.stroke()}
     X.strokeStyle='rgba(255,255,255,.14)';
     for(const d of SC.rings){X.beginPath();X.ellipse(d.x,d.y,d.r,d.r*.3,0,0,7);X.stroke()} }
+  // thin mist lying on the water — the cool hours only, drifting, never in rain
+  if(!wx.rain&&!L.night&&L.dim>.18){
+    const mr=lcg(hash32('mist'));
+    for(let i=0;i<7;i++){
+      const my=HOR+4+mr()*32, mw=120+mr()*200,
+        mx=((t*(5+i*2.2)+i*280+mr()*400)%(W+2*mw))-mw;
+      X.globalAlpha=.05+mr()*.06; blob(mx,my,mw,4+mr()*7,'#ffffff');
+    }
+    X.globalAlpha=1;
+  }
   // spot fixtures
   drawDock(L); drawPads(L,t); drawBoat(L); drawWillow(L,t); drawBank(L,t);
   // tells + critters
   drawTells(L,t);
+  // the near plane, last and in front of everything
+  drawForeground(L,t);
 }
 function drawDock(L){
   const x0=worldX(SPOTS.dock.x0), wid=SPOTS.dock.x1-SPOTS.dock.x0;
@@ -865,13 +954,13 @@ function buildScript(line){
   const r=simRng('cast'+SAVE.casts);
   const eff=Math.sqrt(heat); // sums of ~50 candidates saturate; sqrt keeps waits honest
   const evs=[]; let t=rnd(r,TUNE.firstWait[0],TUNE.firstWait[1])/Math.max(.4,Math.min(1.9,.35+eff*.13));
-  for(let i=0;i<7;i++){
+  for(let i=0;i<TUNE.events;i++){
     const isFalse=r()<TUNE.falseP || heat<=0.02 || !cands.length;
     if(isFalse){
       const canTurtle=(line.spot==='mud'||line.spot==='dock'||line.spot==='pads');
       const kind=canTurtle&&r()<TUNE.turtleP?'turtle':(r()<.5?'nibbler':(r()<.5?'weeds':'wave'));
       evs.push({t:t,kind:kind});
-    }else if(r()<clamp(.2+eff*.075,.12,.8)){
+    }else if(r()<clamp(TUNE.biteBase+eff*TUNE.biteGain,TUNE.biteFloor,TUNE.biteCap)){
       let x=r()* (heat||1), fish=cands.length?cands[0].f:null;
       for(const c of cands){x-=c.w;if(x<=0){fish=c.f;break}}
       if(fish)evs.push({t:t,kind:'bite',f:fish});

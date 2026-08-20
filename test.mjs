@@ -7,7 +7,16 @@ const shots=path.join(dir,'shots');
 import fs from 'fs'; fs.mkdirSync(shots,{recursive:true});
 
 const errors=[];
-const browser=await chromium.launch({executablePath:'/opt/pw-browsers/chromium',args:['--no-sandbox']});
+/* ⚠️ this used to hardcode executablePath:'/opt/pw-browsers/chromium', which exists
+ * only in the Linux container the suite was first written in — so `npm i playwright
+ * && node test.mjs` (what the README tells you to run) could never pass on Kyle's
+ * Windows box. Portable now: honour PW_CHROMIUM, else that container path if it is
+ * really there, else PW_CHANNEL (e.g. 'chrome'), else playwright's own browser. */
+const pwExe=process.env.PW_CHROMIUM||'/opt/pw-browsers/chromium';
+const launchOpts={args:['--no-sandbox']};
+if(fs.existsSync(pwExe))launchOpts.executablePath=pwExe;
+else if(process.env.PW_CHANNEL)launchOpts.channel=process.env.PW_CHANNEL;
+const browser=await chromium.launch(launchOpts);
 const page=await browser.newPage({viewport:{width:980,height:560}});
 page.on('pageerror',e=>errors.push('PAGEERROR: '+e.message));
 page.on('console',m=>{if(m.type()==='error')errors.push('CONSOLE: '+m.text())});
