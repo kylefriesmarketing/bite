@@ -275,7 +275,7 @@ function readContracts(){
 }
 
 /* ======================= 3. TIME · WEATHER ======================= */
-const DBG={hour:null,month:null,wx:null,mayor:false};
+const DBG={hour:null,month:null,day:null,ice:null,wx:null,mayor:false};
 function realHour(){ if(DBG.hour!=null)return DBG.hour; const d=new Date(); return d.getHours()+d.getMinutes()/60 }
 function realMonth(){ if(DBG.month!=null)return DBG.month; return new Date().getMonth()+1 }
 function sunTimes(){ return MONTH_SUN[realMonth()-1] }
@@ -285,6 +285,20 @@ function phase(){ const h=realHour(),st=sunTimes(),sr=st[0],ss=st[1];
   if(h>sr+1.0&&h<ss-1.0)return 'day';
   return 'night' }
 function frozen(){ const m=realMonth(); return m===12||m===1||m===2 }
+function realDay(){ if(DBG.day!=null)return DBG.day; return new Date().getDate() }
+/* ⚠️ THE ABSENCE IS KEPT ON PURPOSE. The bible makes the winter freeze the house's
+ * retention law — "the doorway is gone… absence is its most honest form" — and ice
+ * fishing would delete it outright. Real first ice does not carry a person for
+ * weeks, so the lake still shuts on Dec 1 and the sign still goes up; the ice only
+ * goes hard around the solstice. You are still locked out. Winter just has two
+ * acts now: the door closes, and then a different lake opens on top of the old one. */
+function iceSafe(){ if(DBG.ice!=null)return DBG.ice;
+  const m=realMonth(); if(m===1||m===2)return true;
+  return m===12&&realDay()>=20 }
+// Under the ice the lake is a different roster: most of the warm-water fish go torpid
+// and the panfish/predators that keep feeding are the winter fishery. The perch kings.
+const WINTER={perch:1.6,bluegill:1.05,crappie:1.25,pike:1.0,walleye:1.15,
+              pumpkinseed:.7,rockbass:.5};
 function dateKey(off){ const d=new Date(Date.now()-(off||0)*86400000);
   return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate() }
 function wxFor(off){
@@ -353,13 +367,15 @@ function lbs(inches,sp){ // rough weight; panfish keep it to length
   const k=(sp==='carp'||sp==='catfish')?.00045:(sp==='pike'||sp==='mayor'||sp==='gar')?.00028:.00050;
   return Math.round(k*Math.pow(inches,3)*10)/10;
 }
-function candidates(spot,rig){
+function candidates(spot,rig,ice){
   const out=[]; if(!SAVE.pop)buildPop();
   const nowT=Date.now();
   for(const f of SAVE.pop){
     const s=SP[f.sp]; if(s.unhookable||f.sp==='mayor')continue;
     if(f.sU>nowT)continue;
+    if(ice&&!WINTER[f.sp])continue;              // torpid under the ice
     let m=actMult(f.sp,spot)*baitW(f.sp,rig); if(m<=0)continue;
+    if(ice)m*=WINTER[f.sp];
     if(f.h!==spot)m*=.25;                        // roamers
     const t=(sizeNow(f)-s.inch[0])/(s.inch[1]-s.inch[0]||1);
     m*=lerp(1.35,0.65,clamp(t,0,1));             // small fish bite more
@@ -601,6 +617,123 @@ const SC={cam:0, ripples:[], drops:[], rings:[], nervous:[], swirls:[], fireflie
 function worldX(wx_){return wx_-SC.cam}
 function waterYat(wx_){ // surface y for a given panorama x (distance illusion: constant)
   return HOR+8; }
+/* ======================= THE HARD WATER =======================
+ * Winter's second act. The whole point is that this is the SAME LAKE and the SAME
+ * 128 fish — the bluegill you released in June is under here — reached through a
+ * different door. So the bite grammar, the fight, the card, the journal and the
+ * population are all reused untouched: a float sits IN the hole, which means every
+ * species signature (the perch rattle, the crappie's lift, the walleye's spongy
+ * nothing) transfers with no new language to learn. The mode adds three verbs:
+ * drill, jig, and the tip-up flag. */
+function iceY(u){ return HOR+7+(BANKY-HOR-26)*Math.pow(u,1.95) }  // the water's own curve
+function iceU(y){ return clamp(Math.pow((y-HOR-7)/(BANKY-HOR-26),1/1.95),0,1) }
+function drawTipUp(hx,hy,tip,t){
+  X.strokeStyle='#6b5330';X.lineWidth=2.6;
+  X.beginPath();X.moveTo(hx-13,hy-3);X.lineTo(hx+13,hy-3);X.stroke();
+  X.beginPath();X.moveTo(hx,hy-10);X.lineTo(hx,hy+2);X.stroke();
+  const up=tip.flag, bend=up?Math.sin(t*7)*2.2:0, fy=hy-10-(up?26:5);
+  X.strokeStyle='#4a3a22';X.lineWidth=1.6;X.beginPath();X.moveTo(hx,hy-10);
+  if(up)X.lineTo(hx+bend,fy); else X.quadraticCurveTo(hx+8,hy-9,hx+13,hy-5);
+  X.stroke();
+  X.fillStyle=up?'#d8443a':'#9a5a52';X.beginPath();
+  if(up){X.moveTo(hx+bend,fy);X.lineTo(hx+bend+16,fy+5);X.lineTo(hx+bend,fy+11)}
+  else {X.moveTo(hx+13,hy-5);X.lineTo(hx+24,hy-2);X.lineTo(hx+13,hy+2)}
+  X.closePath();X.fill();
+}
+function drawHoles(L,t){
+  if(!G.ice)return;
+  for(const h of G.ice.holes){
+    const hx=worldX(h.x); if(hx<-50||hx>W+50)continue;
+    const u=iceU(h.y), rw=8+u*12, rh=rw*.42;
+    X.fillStyle='rgba(255,255,255,.8)';                       // shaved-ice rim
+    X.beginPath();X.ellipse(hx,h.y,rw+3.5,rh+2.4,0,0,7);X.fill();
+    X.fillStyle='#173341';
+    X.beginPath();X.ellipse(hx,h.y,rw,rh,0,0,7);X.fill();
+    X.strokeStyle='rgba(255,255,255,.35)';X.lineWidth=1;
+    X.beginPath();X.ellipse(hx,h.y-.6,rw*.72,rh*.6,0,0,7);X.stroke();
+    if(h.tip)drawTipUp(hx,h.y,h.tip,t);
+  }
+  if(G.ice.drill){                                            // the auger, biting
+    const d=G.ice.drill, dx=worldX(d.x), sp=d.p*14;
+    X.strokeStyle='#3d4650';X.lineWidth=3;
+    X.beginPath();X.moveTo(dx,d.y-46);X.lineTo(dx,d.y);X.stroke();
+    X.strokeStyle='#8a939c';X.lineWidth=2;
+    for(let i=0;i<4;i++){const yy=d.y-6-i*9;
+      X.beginPath();X.moveTo(dx-5,yy);X.lineTo(dx+5,yy-3-Math.sin(sp+i)*2);X.stroke()}
+    X.fillStyle='#2c3540';rrect(dx-11,d.y-56,22,7,3);X.fill();
+    X.fillStyle='rgba(255,255,255,.85)';
+    for(let i=0;i<7;i++){const a2=sp*.6+i*1.1;
+      blob(dx+Math.cos(a2)*(7+d.p*13),d.y+Math.sin(a2)*(3+d.p*5),1.8,1.2,'rgba(255,255,255,.8)')}
+    X.fillStyle='rgba(20,34,42,'+(.5*d.p)+')';
+    X.beginPath();X.ellipse(dx,d.y,3+d.p*7,(3+d.p*7)*.42,0,0,7);X.fill();
+  }
+}
+function drawIceSheet(L,t){
+  const wx=wxFor(0);
+  let g=X.createLinearGradient(0,HOR,0,BANKY);
+  g.addColorStop(0,mix(L[2],'#e8eff5',.74)); g.addColorStop(.35,mix(L[3],'#e0eaf1',.68));
+  g.addColorStop(1,mix(L[3],'#c6d5de',.62));
+  X.fillStyle=g;X.fillRect(0,HOR,W,BANKY-HOR);
+  {const dr=lcg(hash32('drift'));                    // drifts, on the water's own curve
+   for(let i=0;i<20;i++){const u=i/19,y=iceY(u);
+     X.globalAlpha=.08+u*.20;X.fillStyle='#ffffff';
+     let x=-70+dr()*90;
+     while(x<W+70){const w2=40+dr()*(60+u*210),h2=1.4+u*4.6;
+       X.beginPath();X.ellipse(x+w2*.5,y,w2*.5,h2,0,0,7);X.fill();
+       x+=w2+26+dr()*(36+u*110)}}
+   X.globalAlpha=1}
+  {const br=lcg(hash32('bare'));                     // wind-scoured blue ice
+   for(let i=0;i<7;i++){const u=.15+br()*.8;
+     X.globalAlpha=.13+br()*.11;
+     blob(br()*W,iceY(u),46+br()*110,5+u*15,mix(L[3],'#7ea9c6',.55))}
+   X.globalAlpha=1}
+  {const ir=lcg(hash32('crack'));
+   for(let i=0;i<6;i++){let u=.12+ir()*.82,cx=ir()*W,cy=iceY(u);
+     X.strokeStyle='rgba(126,156,178,'+(.18+ir()*.3)+')';X.lineWidth=.8+u*1.3;
+     X.beginPath();X.moveTo(cx,cy);
+     for(let k=0;k<3;k++){cx+=(20+ir()*58)*(1+u);cy+=(ir()-.35)*18*(1+u);X.lineTo(cx,cy)}
+     X.stroke()}}
+  drawDock(L);
+  {const sx=worldX(742);                             // the shanty, out on the lake
+   if(sx>-120&&sx<W+120){const sy=iceY(.52);
+     X.fillStyle='rgba(70,86,98,.22)';
+     X.beginPath();X.ellipse(sx+6,sy+3,44,8,0,0,7);X.fill();
+     X.fillStyle=mix('#6d5334','#2a2116',L.dim*.6);rrect(sx-34,sy-46,68,48,3);X.fill();
+     X.fillStyle=mix('#4f3d26','#1d1710',L.dim*.6);
+     X.beginPath();X.moveTo(sx-40,sy-44);X.lineTo(sx,sy-64);X.lineTo(sx+40,sy-44);X.closePath();X.fill();
+     X.fillStyle='rgba(255,255,255,.9)';                       // snow on the roof
+     X.beginPath();X.moveTo(sx-40,sy-44);X.lineTo(sx,sy-64);X.lineTo(sx+40,sy-44);
+     X.lineTo(sx+34,sy-46);X.lineTo(sx,sy-59);X.lineTo(sx-34,sy-46);X.closePath();X.fill();
+     X.fillStyle=L.night||L.dim>.4?'#ffca6b':'#3a3226';rrect(sx-9,sy-33,18,15,2);X.fill();
+     X.strokeStyle='#3a2f22';X.lineWidth=2;
+     X.beginPath();X.moveTo(sx+22,sy-60);X.lineTo(sx+22,sy-72);X.stroke();
+     const sr=lcg(hash32('smoke'));                            // stove smoke
+     for(let i=0;i<5;i++){const ph=(t*.32+i*.2)%1;
+       X.globalAlpha=.30*(1-ph);
+       blob(sx+22+Math.sin(t*.5+i*1.7)*(4+ph*14),sy-74-ph*46,4+ph*13,3.6+ph*11,'#e6ecf0')}
+     X.globalAlpha=1}}
+  drawHoles(L,t);
+  {const bg=X.createLinearGradient(0,BANKY-12,0,H);   // the snowed-in bank
+   bg.addColorStop(0,'#e2e9ee');bg.addColorStop(1,mix('#b9c4cc','#6d7780',L.dim*.5));
+   X.fillStyle=bg;X.beginPath();X.moveTo(0,H);X.lineTo(0,BANKY);
+   for(let x=0;x<=W;x+=24)X.lineTo(x,BANKY-5+Math.sin(x*.05)*5);
+   X.lineTo(W,H);X.closePath();X.fill();
+   X.strokeStyle='rgba(120,132,142,.5)';X.lineWidth=1.2;   // dead stalks through snow
+   const kr=lcg(37);
+   for(let i=0;i<34;i++){const gx=kr()*W,gy=BANKY+4+kr()*22,hh=4+kr()*11;
+     X.beginPath();X.moveTo(gx,gy);X.lineTo(gx+Math.sin(t*.4+i)*1.2,gy-hh);X.stroke()}
+   const bx=W-150;                                     // the bucket you sit on
+   X.fillStyle=mix('#8a6a3a','#3a2c18',L.dim*.5);
+   X.beginPath();X.moveTo(bx-13,BANKY+34);X.lineTo(bx+13,BANKY+34);X.lineTo(bx+10,BANKY+58);
+   X.lineTo(bx-10,BANKY+58);X.closePath();X.fill();
+   X.strokeStyle='rgba(255,255,255,.5)';X.lineWidth=2;
+   X.beginPath();X.moveTo(bx-13,BANKY+35);X.lineTo(bx+13,BANKY+35);X.stroke()}
+  if(!RM){const sn=lcg(hash32('snow'));               // it is always snowing a little
+    for(let i=0;i<52;i++){const dr2=.4+sn()*1.6,
+      sx3=(sn()*W+t*(6+dr2*9)+Math.sin(t*.5+i)*11)%(W+24)-12,
+      sy3=(sn()*H+t*(11+dr2*20))%(H+16)-8;
+      blob(sx3,sy3,1+dr2*.9,1+dr2*.9,'rgba(255,255,255,'+(.30+dr2*.28)+')')}}
+}
 function drawForeground(L,t){
   /* ⚠️ The strongest depth cue there is, and the lake had none of it: something NEAR.
    * Sky, far shore and water are all mid-to-far planes, so the eye had nothing to
@@ -610,7 +743,9 @@ function drawForeground(L,t){
    * the water you cast into — this is framing, never an obstruction.
    * They do NOT parallax: they are at your feet, so they travel with you. */
   const wx=wxFor(0), sway=(wx.wind.str+.25)*wx.wind.dir;
-  const dark=mix(L[6],'#0b1408',.74), head=mix('#6b4a26','#100c07',.55+L.dim*.3);
+  // in winter the same reeds are dead standing stalks — bleached, not green
+  const dark=G.iceOut?mix('#7a6a4a','#2a2418',.55):mix(L[6],'#0b1408',.74),
+        head=mix('#6b4a26','#100c07',(G.iceOut?.25:.55)+L.dim*.3);
   for(const side of [0,1]){
     const r=lcg(side?73:31);
     for(let i=0;i<14;i++){
@@ -680,6 +815,10 @@ function drawScene(L){
    hz.addColorStop(0,mixR(L[1],'#ffffff',.3,0));
    hz.addColorStop(1,mixR(L[1],'#ffffff',.3,hzT));
    X.fillStyle=hz;X.fillRect(0,HOR-54,W,57)}
+  // ⚠️ the ice takes over everything below the horizon. Sky, the three ridges, the
+  // haze and the near reeds are shared with summer on purpose — it has to read as
+  // the SAME lake, seen in a season, not a second location.
+  if(G.iceOut){ drawIceSheet(L,t); drawForeground(L,t); return }
   // water
   g=X.createLinearGradient(0,HOR,0,BANKY);
   g.addColorStop(0,L[2]); g.addColorStop(.25,L[3]); g.addColorStop(1,mix(L[3],'#0c1a14',.35));
@@ -977,8 +1116,67 @@ function tryCast(wx_){
     retrieve:SAVE.rig.type==='lure',lx:1,ly:8,duty:[],toggles:0,cad:0,snag:null,strike:null,fig8Done:false};
   SFX.cast();
 }
+/* ---- the hard water: drill, jig, tip-up ---- */
+function iceHoleAt(p){
+  if(!G.ice)return null;
+  for(const h of G.ice.holes){
+    const hx=worldX(h.x), u=iceU(h.y), rw=(8+u*12)+12;
+    if(Math.abs(p.x-hx)<rw && Math.abs(p.y-h.y)<rw*.62+14)return h;
+  }
+  return null;
+}
+function dropLine(h){
+  if(SAVE.rig.type==='worm'&&SAVE.worms<=0){toast('out of worms. the hose end of the garden knows more.');return}
+  SAVE.casts++; G.sessionCasts++; SAVE.started=true; markSave();
+  const blessed=G.blessed; G.blessed=false; const spit=G.spitNext; G.spitNext=false;
+  // ⚠️ a float IN the hole, deliberately: it means every bite signature in §5 reads
+  // exactly as it does in summer, so nobody has to learn a second language in winter.
+  G.line={spot:spotAt(h.x),bx:h.x,by:h.y,st:'wait',t:0,anim:{type:'idle',ph:0},
+    script:null,ev:null,evT:0,waitT:0,ice:1,hole:h,
+    boost:(blessed?1.35:1)*(spit?1.07:1),
+    retrieve:false,lx:1,ly:8,duty:[],toggles:0,cad:0,snag:null,strike:null,fig8Done:false};
+  SFX.plop(.8);
+}
+function setTipUp(h){
+  if(h.tip){h.tip=null;toast('picked the tip-up back up.');return}
+  if(G.ice.holes.filter(q=>q.tip).length>=2){toast('two tip-ups. that’s the limit, and the carry.');return}
+  h.tip={t:0,next:34+simR()*95,flag:false,f:null};
+  toast('tip-up set. now watch the flag instead of the hole.');
+}
+function runTipUp(h){
+  const tp=h.tip; if(!tp||!tp.flag||!tp.f)return;
+  G.line={spot:spotAt(h.x),bx:h.x,by:h.y,st:'wait',t:0,anim:{type:'idle',ph:0},script:[],si:0,
+    ev:null,evT:0,waitT:0,ice:1,hole:h,boost:1,retrieve:false,lx:1,ly:8,duty:[],toggles:0,
+    cad:0,snag:null,strike:null,fig8Done:false};
+  const f=tp.f; h.tip=null;
+  SAVE.casts++; G.sessionCasts++; SAVE.started=true; markSave();
+  hookFish(f);            // a tip-up IS the set — she took it and ran while you watched
+}
+function tickIce(dt){
+  if(!G.ice)return;
+  if(G.ice.drill){
+    if(G.holding){
+      G.ice.drill.p+=dt/1.15;
+      if(G.ice.drill.p>=1){
+        const d=G.ice.drill; G.ice.drill=null;
+        G.ice.holes.push({x:d.x,y:d.y,tip:null});
+        if(G.ice.holes.length>5)G.ice.holes.shift();   // the ice is not a colander
+        SFX.plop(.5); toast('a hole. eight inches of it, and the lake underneath.');
+      }
+    } else G.ice.drill=null;                            // let go and the auger stops
+  }
+  for(const h of G.ice.holes){
+    const tp=h.tip; if(!tp||tp.flag)continue;
+    tp.t+=dt; if(tp.t<tp.next)continue;
+    // a tip-up is a big-fish rig: it soaks a bait for the winter predators
+    const cs=candidates(spotAt(h.x),{type:'worm'},1).filter(c=>SP[c.f.sp].fight.stam>2.4);
+    if(cs.length){ tp.f=cs[Math.floor(Math.random()*cs.length)].f; tp.flag=true;
+      SFX.plop(1); toast('FLAG UP. something took the tip-up.',true) }
+    else { tp.t=0; tp.next=40+simR()*95 }
+  }
+}
 function buildScript(line){
-  const cands=candidates(line.spot,SAVE.rig);
+  const cands=candidates(line.spot,SAVE.rig,line.ice);
   let heat=0; for(const c of cands)heat+=c.w;
   heat*=line.boost;
   const r=simRng('cast'+SAVE.casts);
@@ -1190,7 +1388,7 @@ function endFight(cause){
   }else if(cause==='snap'&&SAVE.rig.type==='lure'&&(F.sp==='pike'||F.sp==='carp'||F.sp==='mayor')&&simR()<.5){loseLure(SAVE.rig.id)}
   if(F.f&&cause!=='mayorsnap'){F.f.sU=Date.now()+3600e3*6; markSave()} // shook off: sore a little, wiser
   if(F.f)F.f.w=Math.min(1,F.f.w+.02);
-  G.fight=null; G.mode='lake'; G.line=null;
+  G.fight=null; G.mode=G.iceOut?'ice':'lake'; G.line=null;
   if(SAVE.rig.type==='worm')SAVE.worms=Math.max(0,SAVE.worms-1);
   toast(msg,true); markSave(); saveNow();
 }
@@ -1217,7 +1415,7 @@ function land(){
 }
 function dismissCard(){
   SFX.plop(.6);
-  G.card=null; G.line=null; G.mode='lake';
+  G.card=null; G.line=null; G.mode=G.iceOut?'ice':'lake';
   toast('back she goes. the lake keeps her.');
 }
 
@@ -1588,6 +1786,18 @@ function renderLakeHUD(L){
     X.fillStyle='rgba(14,22,20,.6)';rrect(W-104,H-70,96,26,8);X.fill();
     txt('reel in',W-56,H-57,12.5,'#d8e4da','center');
   }
+  if(G.iceOut){
+    const flag=G.ice&&G.ice.holes.some(h=>h.tip&&h.tip.flag);
+    btn('tipup',W-232,H-34,118,24);
+    X.fillStyle=flag?'rgba(150,40,32,.85)':'rgba(14,22,20,.6)';rrect(W-232,H-34,118,24,8);X.fill();
+    txt(flag?'⚑ RUN!':'⚑ tip-up',W-173,H-22,12.5,flag?'#ffe0d6':'#d8e4da','center');
+    if(!G.line&&!G.ice.holes.length&&!G.ice.drill)
+      txt('press the ice and lean on it',W/2,BANKY-16,12.5,'rgba(240,246,250,.62)','center',true);
+    else if(G.ice.drill)
+      txt('keep leaning…',worldX(G.ice.drill.x),G.ice.drill.y-72,12.5,'rgba(240,246,250,.75)','center',true);
+    else if(!G.line)
+      txt('a hole is a door. press one.',W/2,BANKY-16,12.5,'rgba(240,246,250,.5)','center',true);
+  }
   if(G.spookT>0)txt('…the water went quiet.',W/2,BANKY-16,12,'rgba(230,240,230,.5)','center',true);
   // toast
   if(G.toast){
@@ -1599,10 +1809,21 @@ function renderLakeHUD(L){
 }
 function renderLake(L){
   drawScene(L);
-  // mayor ambient shadow
-  if(SC.mShadow){const sx=worldX(SC.mShadow.x);
+  // mayor ambient shadow — never through the ice; she is down there, not visiting
+  if(SC.mShadow&&!G.iceOut){const sx=worldX(SC.mShadow.x);
     if(sx>-90&&sx<W+90){X.save();X.globalAlpha=.4;
       X.fillStyle='rgba(16,28,22,.8)';X.beginPath();X.ellipse(sx,HOR+46,58,9,0,0,7);X.fill();X.restore()}}
+  if(G.iceOut){                      // hard water: no cast arc, a short jigging stick
+    if(G.line){
+      const bp=drawBobber(G.line);
+      X.strokeStyle='#3a2f22';X.lineWidth=2.6;
+      X.beginPath();X.moveTo(bp.x-34,bp.y-70);X.lineTo(bp.x-3,bp.y-13);X.stroke();
+      X.fillStyle='#5c4a30';rrect(bp.x-40,bp.y-78,15,9,3);X.fill();
+      X.strokeStyle='rgba(255,255,255,.55)';X.lineWidth=1;
+      X.beginPath();X.moveTo(bp.x-3,bp.y-13);X.lineTo(bp.x,bp.y-3);X.stroke();
+    }
+    renderLakeHUD(L); return;
+  }
   const a=rodAnchor();
   if(G.aim){ // aiming
     const tx=G.aim.x, ty=G.aim.y;
@@ -1808,6 +2029,7 @@ function renderFrozen(){
   X.fillStyle='#e8dfc8';rrect(-92,-14,184,30,4);X.fill();
   hand('see you at thaw. — mgmt',0,2,13,'#4a4028','center',0);X.restore();
   hand('(the fish are fine. they’re just not answering the door.)',W/2,BANKY+40,12,'#7a828c','center',-.008);
+  hand('the ice is still making. it will not hold you yet.',W/2,BANKY+62,12,'#8f98a2','center',.006);
   BTNS=[];
   chipBtn('journal',16,H-46,140,'the book');
   roundBtn('mute',W-28,26,15,SETT.mute?'✕':'♪');
@@ -1955,14 +2177,28 @@ function doBtn(id){
     case 'dig': SAVE.worms=Math.min(18,SAVE.worms+TUNE.wormsDig);SFX.scribble();
       toast(EXT.jar?'topped up from the jar. the porch provides.':'six from under the hose. the lawn provides.');markSave(); break;
     case 'spit': if(!G.spitNext){G.spitNext=true;supNote('spit');SFX.plop(.3)} break;
+    case 'tipup': {
+      if(!G.ice||!G.ice.holes.length){toast('drill a hole first. lean on the auger.');break}
+      const up=G.ice.holes.find(h=>h.tip&&h.tip.flag);
+      if(up){G.line=null;runTipUp(up);break}          // drop everything and run to it
+      const free=G.ice.holes.find(h=>!h.tip);
+      if(free)setTipUp(free); else toast('every hole has a flag on it already.');
+      break; }
     case 'house': try{location.href='https://kylefriesmarketing.github.io/games/'}catch(e){} break;
     default:
       if(id.startsWith('rig:')){SAVE.rig={type:'lure',id:id.slice(4)};markSave()}
   }
 }
+function enterIce(){
+  G.mode='ice'; G.iceOut=true; G.sessionCasts=0; SAVE.lastCasts=0;
+  if(!G.ice)G.ice={holes:[],drill:null};
+  if(!G.iceHi){G.iceHi=1;
+    setTimeout(()=>toast('hard water. drill where you think they are — press the ice and lean on it.',true),900)}
+}
 function enterLake(){
-  if(frozen()){G.mode='frozen';return}
-  G.mode='lake'; G.sessionCasts=0; SAVE.lastCasts=0;
+  if(frozen()&&!iceSafe()){G.mode='frozen';return}   // the door is shut. that is the point.
+  if(frozen()){enterIce();return}
+  G.mode='lake'; G.iceOut=false; G.sessionCasts=0; SAVE.lastCasts=0;
   if(!G.otRolled){G.otRolled=true;
     G.ot=(hash32(dateKey(0)+'ot')%100)<35&&realHour()<11;
     SC.oldTimer=G.ot;
@@ -1980,6 +2216,16 @@ CV.addEventListener('pointerdown',e=>{
   if(G.mode==='look'){dismissCard();return}
   if(G.overlay)return;
   if(G.mode==='fight'){G.holding=true;G.steerX=p.x;return}
+  if(G.mode==='ice'){
+    // ⚠️ a tap on the ice while jigging is THE SET and nothing else — the bobber
+    // grammar has to mean the same thing in both seasons. That is why the tip-up
+    // lives on its own HUD verb instead of sharing the tap.
+    if(G.line){G.holding=true;trySet();return}
+    const h=iceHoleAt(p); if(h){dropLine(h);return}
+    if(p.y>=BANKY){G.camDrag={x:p.x,cam:SC.cam};return}
+    if(p.y>HOR+26&&p.y<BANKY-10){G.ice.drill={x:p.x+SC.cam,y:p.y,p:0};G.holding=true}
+    return;
+  }
   if(G.mode!=='lake')return;
   if(G.line){
     G.holding=true;
@@ -2077,6 +2323,15 @@ function renderDebug(){
 }
 window.__bite={G:G,SC:SC,SP:SP,SPOTS:SPOTS,LID:LID,TUNE:TUNE,DBG:DBG,
   save:function(){return SAVE},wxFor:wxFor,actMult:actMult,candidates:candidates,phase:phase,
+  enterLake:enterLake,iceSafe:iceSafe,frozen:frozen,
+  drill:function(wx_,y){ if(!G.ice)G.ice={holes:[],drill:null};
+    const h={x:wx_,y:y||iceY(.55),tip:null}; G.ice.holes.push(h); return h },
+  jig:function(h){ dropLine(h||G.ice.holes[0]) },
+  tipup:function(h){ setTipUp(h||G.ice.holes[0]) },
+  popFlag:function(h){ h=h||G.ice.holes.find(q=>q.tip); if(!h||!h.tip)return 'no tip-up';
+    h.tip.t=h.tip.next+1; tickIce(.016); return h.tip.flag?'flagged: '+(h.tip.f&&h.tip.f.sp):'no taker' },
+  runTip:function(h){ h=h||G.ice.holes.find(q=>q.tip&&q.tip.flag); if(!h)return 'no flag';
+    G.line=null; runTipUp(h); return G.mode },
   cast:function(spot){tryCast((SPOTS[spot].x0+SPOTS[spot].x1)/2)},
   forceBite:function(sp){
     const f=SAVE.pop.find(function(q){return q.sp===sp&&q.sU<Date.now()});
@@ -2104,7 +2359,8 @@ window.__bite={G:G,SC:SC,SP:SP,SPOTS:SPOTS,LID:LID,TUNE:TUNE,DBG:DBG,
 /* ======================= 13. MAIN LOOP ======================= */
 function TICK(dt){
   updWorld(dt); ambTick(dt);
-  if(G.mode==='lake'&&G.line){
+  if(G.mode==='ice')tickIce(dt);
+  if((G.mode==='lake'||G.mode==='ice')&&G.line){
     if(G.line.st==='flight'){G.line.t+=dt;
       if(G.line.t>.45){G.line.st=G.line.retrieve?'ret':'wait';SFX.plop(1);
         if(G.line.retrieve){G.line.lx=1;G.line.ly=8;G.line.bx0=1;maybeFollow(G.line)}}}
@@ -2112,7 +2368,7 @@ function TICK(dt){
     else if(G.spookT<=0)updWait(G.line,dt);
     else {G.spookT-=0} // spook: bobber sits; updWait paused (spookT decays in updWait normally; decay here)
   }
-  if(G.mode==='lake'&&G.line&&G.spookT>0)G.spookT-=dt;
+  if((G.mode==='lake'||G.mode==='ice')&&G.line&&G.spookT>0)G.spookT-=dt;
   if(G.mode==='fight')updFight(dt);
   const L=lightNow();
   if(G.mode==='title')renderTitle(L);

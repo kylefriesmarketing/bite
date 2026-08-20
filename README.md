@@ -1,6 +1,6 @@
 # BITE
 ### quiet fishing at Mud Lake, done honestly · a DIRTY BOY DEVS game
-**v1.3 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
+**v1.4 · 2026-08-19 · single-file C-tier house game · bible: `BITE-BIBLE.md` (workspace root)**
 **Live: https://kylefriesmarketing.github.io/bite/**
 
 The tackle box in the garage is dad's. Inside it: a red-and-white bobber, a coffee can's
@@ -35,7 +35,21 @@ Open `index.html` in a browser. That's it — no build step, no dependencies, bo
 The lake runs on the **real clock and real seasons**. Dawn and dusk are gold. Night belongs
 to the catfish. The barometer in the box lid tells you the day's odds — the gray drizzle
 before a storm is the best fishing of the year, and the postcard-blue day after it is the
-worst. In December the lake freezes and the doorway is gone until thaw. That's the point.
+worst.
+
+**Winter has two acts.** On December 1st the lake freezes and the doorway is gone — the
+sign goes up and you are simply locked out. That part is the point. Then around the
+solstice the ice goes hard, and you can walk out on it:
+
+- **Drill:** press the ice and lean on it. Let go early and the auger stops. Five holes.
+- **Jig:** a hole is a door — press one. There's a float down there, so every bite reads
+  exactly as it does in summer; nothing new to learn.
+- **Tip-up:** set a flag rig on a second hole and go back to jigging. When something takes
+  it the flag pops — drop everything and hit **RUN!**. It's already hooked; a tip-up *is*
+  the set. That's where the pike and walleye come from.
+
+It's the same lake and the same fish underneath: the bluegill you released in June is down
+there. Most of the warm-water fish are torpid, which leaves the perch kings. March is thaw.
 
 ## The house contract
 
@@ -48,7 +62,7 @@ worst. In December the lake freezes and the doorway is gone until thaw. That's t
   fallback: dig by the hose) · `sundaydriver-save` (opens the far bank; fallback: 10 journal
   species) · `goodboy-save` (the dog naps on the dock, and barks at exactly one thing).
 - Audio all-synth WebAudio, mute persists · `prefers-reduced-motion` honored ·
-  back-link to the house · zero deps · ~2100 lines.
+  back-link to the house · zero deps · ~2400 lines (the bible's C-L ceiling is ~2,500).
 
 ## Dev / QA
 
@@ -61,7 +75,7 @@ worst. In December the lake freezes and the doorway is gone until thaw. That's t
   `npm i playwright` then `PW_CHANNEL=chrome node test.mjs` (uses installed Chrome — no
   130MB browser download). `PW_CHROMIUM=<path>` overrides; the old container path still
   wins when it actually exists.
-- `test.mjs` — full Playwright suite (41 checks, **41/41 green on Windows 2026-08-19**):
+- `test.mjs` — full Playwright suite (46 checks, **46/46 green on Windows 2026-08-19**):
   every species landed via the real
   pipeline, bobber-grammar timing, the mayor's scripted first break-off and once-per-save
   landing, lure archaeology, sore-mouth memory, winter freeze, save round-trip, zero
@@ -140,9 +154,39 @@ one procedural `drawFish()` off each species' `pal` + `shape` serves the swimmin
 the catch card and the journal alike. §13 also says "primitives over asset packs" is house
 style, so this may be correct as-is. Note it would fix neither thing Kyle reported.
 
-**M4 ⬜ THE SECOND SEASON — ice fishing.** The bible defers it by name (§7): "deliberately
-NOT in v1 — it's the obvious second-season expansion: the shanty, the auger, the perch
-kings." The lake already goes dark Dec–Feb, so the doorway for it is literally built.
+**M4 ✅ THE SECOND SEASON — ice fishing, done 2026-08-19.** The bible deferred it by name
+(§7), so building it meant amending §7 — see the ⚠️ AMENDED block there, which is now the
+authority on winter.
+
+⚠️ **The absence was kept, on purpose.** The bible makes the freeze the house's retention
+law ("the doorway is gone… absence is its most honest form") and ice fishing would delete
+it outright. Real first ice does not carry a person for weeks, so **the lake still shuts on
+Dec 1 and the sign still goes up** — you're still locked out — and **around the solstice the
+ice goes hard and you can walk out on it**, through February. Winter has two acts instead of
+one: the door closes, then a different lake opens on top of the old one.
+
+It is **the same lake and the same 128 fish** through another door, so the population,
+journal, records, fight, card and release are the summer systems untouched. A float sits
+**in** the hole, which is the whole trick: every bite signature in §5 reads exactly as it
+does in summer, so there is no second language to learn. Three new verbs:
+- **Drill** — press the ice and lean on it; let go early and the auger stops. Five holes max.
+- **Jig** — a hole is a door; press one. A tap while jigging is *the set* and nothing else,
+  which is why the tip-up got its own HUD verb instead of sharing the tap.
+- **The tip-up** — set a flag rig on a second hole, and when something takes it the flag
+  pops, the button turns red and says **RUN!**, and it hands you the fish already hooked,
+  because a tip-up *is* the set. It soaks for the big two.
+
+**The winter roster** is the honest one: bass, carp, catfish, bullhead and bowfin go torpid;
+perch (×1.6), bluegill, crappie, pumpkinseed, rock bass, walleye and pike keep feeding —
+7 of the 13 catchables, the perch kings. The mayor is not available through the ice.
+
+Verified by six new checks in `test.mjs` (**46/46**): locked out at freeze-up, hard water in
+January, the roster split, drill-and-jig, landing through the ice *and being released back
+onto it* rather than onto summer water, and the tip-up handing over a pike.
+⚠️ Two traps found writing those: the old "lake frozen in January" check asserted the
+one-act winter and had to become two checks, and `markSave()` only flags dirty — the real
+write is on a **2-second** timer, so a short settle silently loses the last cast and the
+reload test blames the save code. The round-trip check now names the drifting field.
 
 **M5 ⬜ THE CONTRACTS COME ALIVE.** All three sibling games BITE reads are still `status:
 idea` — NIGHT CRAWLERS (`front-yard.md`), SUNDAY DRIVER (`parents-room.md`), GOOD BOY

@@ -173,11 +173,45 @@ await ev(()=>{__bite.DBG.hour=9;__bite.DBG.wx={press:'falling',sky:'drizzle',rai
 await step(1.2); await shot('14-lake-rain');
 await ev(()=>{__bite.DBG.wx=null});
 
-console.log('== winter freeze ==');
-await ev(()=>{__bite.DBG.month=1;__bite.enter()}); await step(0.3);
-ok(await ev(()=>__bite.G.mode==='frozen'),'lake frozen in January');
+console.log('== winter: two acts ==');
+// ACT ONE — the absence. The bible makes the freeze the house's retention law, so
+// ice fishing must NOT delete it: at freeze-up the door is still shut.
+await ev(()=>{__bite.DBG.month=12;__bite.DBG.day=10;__bite.DBG.ice=null;
+  __bite.G.iceOut=false;__bite.G.ice=null;__bite.G.line=null;__bite.enter()}); await step(0.3);
+ok(await ev(()=>__bite.G.mode==='frozen'),'locked out at freeze-up (the absence survives)');
 await shot('15-frozen');
-await ev(()=>{__bite.DBG.month=7;__bite.enter()});
+// ACT TWO — the ice goes hard around the solstice and you can walk out on it.
+await ev(()=>{__bite.DBG.month=1;__bite.DBG.day=15;
+  __bite.G.iceOut=false;__bite.G.ice=null;__bite.G.line=null;__bite.G.mode='title';__bite.enterLake()});
+await step(0.3);
+ok(await ev(()=>__bite.G.mode==='ice'&&__bite.G.iceOut===true),'hard water in January');
+// the winter roster: the warm-water fish are torpid, the perch kings are not
+const rost=await ev(()=>{const w={},s={};
+  __bite.DBG.month=1; for(const c of __bite.candidates('drop',{type:'worm'},1))w[c.f.sp]=1;
+  __bite.DBG.month=6; for(const c of __bite.candidates('drop',{type:'worm'}))s[c.f.sp]=1;
+  __bite.DBG.month=1; return {w:Object.keys(w),s:Object.keys(s)}});
+ok(rost.w.includes('perch')&&!rost.w.includes('largemouth')&&!rost.w.includes('carp')
+   &&rost.s.includes('largemouth'),'winter roster: perch in, bass and carp torpid ('+rost.w.length+' of '+rost.s.length+')');
+// drill, jig, and the whole summer pipeline through a hole
+const iceRun=await ev(()=>{const h=__bite.drill(880,330); __bite.jig(h);
+  let g=0; while(__bite.G.line&&!__bite.G.line.script&&g++<200)__bite.step(.05);
+  return {holes:__bite.G.ice.holes.length,ice:__bite.G.line&&__bite.G.line.ice,
+          evs:__bite.G.line&&__bite.G.line.script?__bite.G.line.script.length:0}});
+ok(iceRun.holes===1&&iceRun.ice===1&&iceRun.evs>0,'drilled a hole and jigged it ('+iceRun.evs+' events)');
+const iceLand=await ev(()=>{__bite.hookNow('perch');__bite.surface();__bite.net();
+  const card=__bite.G.card&&__bite.G.card.sp; __bite.dismiss();
+  return {card:card,back:__bite.G.mode}});
+// ⚠️ the release must return you to the ICE, not to open summer water
+ok(iceLand.card==='perch'&&iceLand.back==='ice','landed through the ice and released back onto it');
+const tip=await ev(()=>{const h=__bite.G.ice.holes[0]; __bite.tipup(h);
+  const p=__bite.popFlag(h); return {p:p,mode:__bite.runTip(h),sp:__bite.G.fight&&__bite.G.fight.sp}});
+ok(/flagged/.test(tip.p)&&tip.mode==='fight','the tip-up flags and hands you the fish ('+tip.sp+')');
+await shot('15b-ice');
+await ev(()=>{__bite.DBG.month=7;__bite.DBG.day=null;__bite.G.iceOut=false;__bite.G.ice=null;
+  __bite.G.fight=null;__bite.G.line=null;__bite.enter()});
+// ⚠️ markSave() only flags dirty; the real write is on a 2s timer (saveTimer), so a
+// short settle silently loses the last cast and the reload test blames the save code.
+for(let i=0;i<8;i++)await step(0.4);
 
 console.log('== save round-trip ==');
 const before=await ev(()=>({casts:__bite.save().casts,j:Object.keys(__bite.save().journal).length,
@@ -185,7 +219,10 @@ const before=await ev(()=>({casts:__bite.save().casts,j:Object.keys(__bite.save(
 await page.reload(); await page.waitForTimeout(500);
 const after=await ev(()=>({casts:__bite.save().casts,j:Object.keys(__bite.save().journal).length,
   released:__bite.save().released,pop0:__bite.save().pop[0].b,mayor:__bite.save().mayor.landed,seed:__bite.save().lakeSeed}));
-ok(JSON.stringify(before)===JSON.stringify(after),'save survives reload ('+after.casts+' casts, '+after.j+' species, mayor='+after.mayor+')');
+const drift=Object.keys(before).filter(k=>before[k]!==after[k])
+  .map(k=>k+': '+before[k]+'→'+after[k]).join(', ');
+ok(!drift,'save survives reload ('+after.casts+' casts, '+after.j+' species, mayor='+after.mayor+')'
+  +(drift?' — DRIFT '+drift:''));
 
 console.log('== real-pointer smoke test ==');
 await page.goto(url); await page.waitForTimeout(600);
