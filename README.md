@@ -48,7 +48,7 @@ worst. In December the lake freezes and the doorway is gone until thaw. That's t
   fallback: dig by the hose) · `sundaydriver-save` (opens the far bank; fallback: 10 journal
   species) · `goodboy-save` (the dog naps on the dock, and barks at exactly one thing).
 - Audio all-synth WebAudio, mute persists · `prefers-reduced-motion` honored ·
-  back-link to the house · zero deps · ~1,950 lines.
+  back-link to the house · zero deps · ~2100 lines.
 
 ## Dev / QA
 
@@ -65,7 +65,7 @@ worst. In December the lake freezes and the doorway is gone until thaw. That's t
   every species landed via the real
   pipeline, bobber-grammar timing, the mayor's scripted first break-off and once-per-save
   landing, lure archaeology, sore-mouth memory, winter freeze, save round-trip, zero
-  console errors. `npm i playwright` then `node test.mjs`.
+  console errors. Run it with the command in the bullet above.
 - QA handles live on `window.__bite`.
 
 ## Milestones (this README is the authority)
